@@ -1,86 +1,152 @@
 #include "vars.h"
 #include "server.h"
-#include "eth_pins.h"
 #include "eth_callback.h"
 #include "telnet.h"
+#include "../../pins.h"
+#include "../../cmd_handler.h"
 
-class CONNECTION : private SERVER, public TELNET
+class CONNECTION : private CONNECTION_SERVER, public TELNET
 {
+private:
+    bool event_registered = false;
+    bool eth_initialized = false;
+    bool mdns_started = false;
+    bool ap_initialized = false;
+    unsigned long eth_disconnected_since_ms = 0;
+    unsigned long last_eth_recovery_attempt_ms = 0;
+
+    static const uint32_t ETH_RECOVERY_GRACE_MS = 8000;
+    static const uint32_t ETH_RECOVERY_INTERVAL_MS = 15000;
+
+    void config_ap()
+    {
+        if (ap_initialized)
+            return;
+
+        String ap_name = get_esp_name();
+        const char *password = "123456789";
+
+        WiFi.mode(WIFI_MODE_APSTA);
+        bool started = WiFi.softAP(ap_name.c_str(), password);
+        Serial.println(started ? "AP started: " + ap_name : "AP start failed");
+        ap_initialized = started;
+    }
+
+    void apply_eth_ip_config()
+    {
+        // Em DHCP, limpa IP estático e volta ao comportamento dinâmico.
+        if (dhcp_on)
+        {
+            ETH.config(IPAddress(), IPAddress(), IPAddress());
+            return;
+        }
+
+        if (static_ip.length() == 0 || gateway_ip.length() == 0 || subnet_mask.length() == 0)
+            return;
+
+        IPAddress ip;
+        IPAddress gateway;
+        IPAddress subnet;
+
+        if (ip.fromString(static_ip) && gateway.fromString(gateway_ip) && subnet.fromString(subnet_mask))
+        {
+            ETH.config(ip, gateway, subnet);
+        }
+        else
+        {
+            Serial.println("ETH static config ignored: invalid IP settings");
+        }
+    }
+
 public:
     void setup()
     {
         config_ap();
         config_server();
 
-        // config ethernet
-        WiFi.onEvent(WiFiEvent);
+        // Registra callback uma única vez para evitar múltiplos handlers.
+        if (!event_registered)
+        {
+            WiFi.onEvent(WiFiEvent);
+            event_registered = true;
+        }
 
 #ifdef ETH_POWER_PIN
         pinMode(ETH_POWER_PIN, OUTPUT);
         digitalWrite(ETH_POWER_PIN, HIGH);
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32
-        if (!ETH.begin(ETH_TYPE, ETH_ADDR, ETH_MDC_PIN,
-                       ETH_MDIO_PIN, ETH_RESET_PIN, ETH_CLK_MODE))
+        // Inicializa o W5500 via SPI apenas na primeira execução.
+        if (!eth_initialized)
         {
-            Serial.println("ETH start Failed!");
-        }
-        else
-        {
-            // IP estático 192.168.1.x usando último byte do MAC (com proteção); hostname = SSID do AP
-            uint8_t last_octet = (uint8_t)(chipid & 0xFF);
-            if (last_octet == 0 || last_octet == 1 || last_octet == 255)
+            if (!ETH.begin(
+                    ETH_PHY_W5500, // Tipo do PHY
+                    1,             // Endereço PHY (1 é padrão para W5500)
+                    ETH_CS_PIN,    // Chip Select
+                    ETH_INT_PIN,   // Interrupção
+                    ETH_RST_PIN,   // Reset
+                    ETH_SPI_HOST,  // Host SPI
+                    ETH_SCLK_PIN,  // Clock (SCK)
+                    ETH_MISO_PIN,  // MISO
+                    ETH_MOSI_PIN)) // MOSI
             {
-                last_octet = 2; // evita conflito: rede (0), gateway (1), broadcast (255)
+                Serial.println("ETH start Failed!");
+                config_telnet();
+                return;
             }
-            IPAddress local_ip(192, 168, 1, last_octet);
-            IPAddress gateway(192, 168, 1, 1);
-            IPAddress subnet(255, 255, 255, 0);
-            ETH.config(local_ip, gateway, subnet);
-            ETH.setHostname(ssid.c_str());
-        }
-#else
-        if (!ETH.begin(ETH_PHY_W5500, 1, ETH_CS_PIN, ETH_INT_PIN, ETH_RST_PIN,
-                       SPI3_HOST,
-                       ETH_SCLK_PIN, ETH_MISO_PIN, ETH_MOSI_PIN))
-        {
-            Serial.println("ETH start Failed!");
-        }
-        else
-        {
-            // IP estático 192.168.1.x usando último byte do MAC (com proteção); hostname = SSID do AP
-            uint8_t last_octet = (uint8_t)(chipid & 0xFF);
-            if (last_octet == 0 || last_octet == 1 || last_octet == 255)
-            {
-                last_octet = 2;
-            }
-            IPAddress local_ip(192, 168, 1, last_octet);
-            IPAddress gateway(192, 168, 1, 1);
-            IPAddress subnet(255, 255, 255, 0);
-            ETH.config(local_ip, gateway, subnet);
-            ETH.setHostname(ssid.c_str());
-        }
-#endif
 
+            eth_initialized = true;
+            Serial.println("ETH init OK");
+        }
+
+        // Define o hostname e aplica a config de IP sem reinicializar o driver.
+        ETH.setHostname(get_esp_name().c_str());
+        apply_eth_ip_config();
+
+        if (!mdns_started && MDNS.begin(get_esp_name().c_str()))
+        {
+            mdns_started = true;
+            Serial.println("mDNS responder started");
+        }
+
+        // Inicia o servidor Telnet
         config_telnet();
     }
 
     void loop()
     {
-        check_telnet();
-        check_is_connected();
-    }
+        String telnet_command = check_telnet();
+        if (telnet_command.length() > 0)
+            process_command(telnet_command, "telnet");
 
-private:
-    void config_ap()
-    {
-        // access point
-        chipid = ESP.getEfuseMac(); // Obtém o MAC único
-        char id_str[13];
-        sprintf(id_str, "%012llX", chipid); // Converte para string hexadecimal
-        ssid = "SMTX-" + String(id_str);    // Cria o SSID
-        const char *password = "123456789";
-        WiFi.softAP(ssid.c_str(), password);
+        telnet_loop();
+        update_command_connection_state();
+
+        if (eth_connected)
+        {
+            eth_disconnected_since_ms = 0;
+            return;
+        }
+
+        if (!eth_initialized)
+            return;
+
+        if (eth_state != "disconnected" && eth_state != "stopped")
+            return;
+
+        const unsigned long now = millis();
+        if (eth_disconnected_since_ms == 0)
+            eth_disconnected_since_ms = now;
+
+        if (now - eth_disconnected_since_ms < ETH_RECOVERY_GRACE_MS)
+            return;
+
+        if (now - last_eth_recovery_attempt_ms < ETH_RECOVERY_INTERVAL_MS)
+            return;
+
+        last_eth_recovery_attempt_ms = now;
+        Serial.println("ETH recovery: reinitializing interface");
+        eth_initialized = false;
+        setup();
     }
 };

@@ -1,0 +1,7 @@
+pegar as coisas de old_connection que nao tem no atual e deixar compativel para uploads,
+
+a parte de verificar comandos coloque em vars pq quero que verifique os comandos eles chegando por telnet, serial ou myusb
+
+quero que deixe o codigo bem robusto e sem erros, verifique logicas, ajuste pontos importantes para mudança e faça todos os ajustes
+
+deixe profissional e robusto 

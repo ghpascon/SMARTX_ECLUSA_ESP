@@ -1,97 +1,128 @@
-class SERVER
+#pragma once
+
+class CONNECTION_SERVER
 {
-public:
-  void config_server()
-  {
-    server.begin();
+protected:
+    bool server_started = false;
 
-    server_connection();
-    server_update();
-  }
+    void config_server()
+    {
+        if (server_started)
+            return;
 
-  void server_connection()
-  {
-    server.on("/connection", HTTP_GET, [](AsyncWebServerRequest *request)
-              {
-    StaticJsonDocument<128> doc;
-    doc["is_connected"] = eth_connected ? "connected" : "disconnected";
-    doc["ssid"] = String(ssid.c_str());
-    doc["ip"] = eth_ip;
-
-    String response;
-    serializeJson(doc, response);
-    request->send(200, "application/json", response); });
-  }
-
-  void server_update()
-  {
-    server.on("/update_firmware", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-    // Verifica se a atualizacao foi bem-sucedida e se o ESP32 deve reiniciar
-    bool shouldReboot = !Update.hasError();
-    if (shouldReboot) {
-        // Envia uma resposta de sucesso antes de reiniciar
-        request->send(200, "text/plain", "Atualizacao de firmware bem-sucedida! Reiniciando...");
-        Serial.println("Atualizacao de firmware bem-sucedida! Reiniciando...");
-
-        // O ESP32 reiniciara automaticamente apos a conclusao do Update.end()
-    } else {
-        // Envia uma resposta de erro
-        request->send(500, "text/plain", "Erro na atualizacao de firmware: " );
-        Serial.println("Erro na atualizacao de firmware: " );
-    } }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
-              {
-    // Callback para lidar com o processo de upload do arquivo
-    if (!index) {
-        // Inicio do upload
-        Serial.printf("Iniciando upload de firmware: %s\n", filename.c_str());
-        // UPDATE_SIZE_UNKNOWN e mais flexivel para uploads via POST
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) { 
-            Update.printError(Serial);
-            request->send(500, "text/plain", "Erro ao iniciar a atualizacao: ");
-        }
+        server_connection();
+        server_update_firmware();
+        server_update_fs();
+        server.begin();
+        server_started = true;
     }
 
-    // Escreve os dados recebidos na flash
-    if (len) {
-        if (Update.write(data, len) != len) {
-            Update.printError(Serial);
-            request->send(500, "text/plain", "Erro ao escrever na flash: " );
-        }
+private:
+    void server_connection()
+    {
+        server.on("/connection", HTTP_GET, [](AsyncWebServerRequest *request)
+                  {
+            StaticJsonDocument<192> doc;
+            doc["is_connected"] = eth_connected ? "connected" : "disconnected";
+            doc["ssid"] = ssid;
+            doc["ip"] = eth_ip;
+            doc["eth_state"] = eth_state;
+
+            String response;
+            serializeJson(doc, response);
+            request->send(200, "application/json", response); });
     }
 
-    // Fim do upload
-    if (final) {
-        if (Update.end(true)) { // 'true' para reiniciar apos a atualizacao
-            Serial.println("Upload de firmware concluido e verificado. O ESP32 ira reiniciar.");
-        }
-        else
-        {
-            Update.printError(Serial);
-            request->send(500, "text/plain", "Erro ao finalizar a atualizacao: ");
-        }
-    } });
+    void server_update_firmware()
+    {
+        server.on(
+            "/update_firmware",
+            HTTP_POST,
+            [](AsyncWebServerRequest *request)
+            {
+                const bool ok = !Update.hasError();
+                request->send(ok ? 200 : 500,
+                              "text/plain",
+                              ok ? "Firmware atualizado com sucesso. Reiniciando..."
+                                 : "Falha na atualizacao de firmware.");
 
-    server.on("/update_fs", HTTP_POST, [](AsyncWebServerRequest *request)
-              {
-    request->send(200, "text/plain", (Update.hasError()) ? "Falha" : "Sucesso");
-    ESP.restart(); }, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
-              {
-    if (index == 0) {
-      Serial.printf("Recebendo %s\n", filename.c_str());
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS, 0x290000)) {
-        Update.printError(Serial);
-      }
+                if (ok)
+                    Serial.println("Firmware update finished successfully");
+                else
+                    Serial.println("Firmware update failed");
+            },
+            [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+            {
+                (void)request;
+
+                if (index == 0)
+                {
+                    Serial.printf("Firmware upload started: %s\n", filename.c_str());
+                    if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+
+                if (len > 0)
+                {
+                    if (Update.write(data, len) != len)
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+
+                if (final)
+                {
+                    if (!Update.end(true))
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+            });
     }
-    if (Update.write(data, len) != len) {
-      Update.printError(Serial);
+
+    void server_update_fs()
+    {
+        server.on(
+            "/update_fs",
+            HTTP_POST,
+            [](AsyncWebServerRequest *request)
+            {
+                const bool ok = !Update.hasError();
+                request->send(ok ? 200 : 500, "text/plain", ok ? "Sucesso" : "Falha");
+
+                if (ok)
+                    ESP.restart();
+            },
+            [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final)
+            {
+                (void)request;
+
+                if (index == 0)
+                {
+                    Serial.printf("FS upload started: %s\n", filename.c_str());
+                    if (!Update.begin(UPDATE_SIZE_UNKNOWN, U_SPIFFS, 0x290000))
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+
+                if (len > 0)
+                {
+                    if (Update.write(data, len) != len)
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+
+                if (final)
+                {
+                    if (!Update.end(true))
+                    {
+                        Update.printError(Serial);
+                    }
+                }
+            });
     }
-    if (final) {
-      if (Update.end(true)) {
-        Serial.println("Atualização do FS concluída");
-      } else {
-        Update.printError(Serial);
-      }
-    } });
-  }
 };

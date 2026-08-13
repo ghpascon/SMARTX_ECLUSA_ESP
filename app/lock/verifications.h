@@ -1,26 +1,53 @@
-#define PIN_R700 41
+#include "../../pins.h"
+#include "../../vars.h"
 
 class LockVerifications
 {
 public:
     void setup()
     {
+        pinMode(EMG_PIN, INPUT_PULLUP);
         pinMode(PIN_R700, OUTPUT);
     }
     void loop()
     {
+        check_emg();
+
+        if (emg_active)
+            return;
+
         check_buttons();
         update_state();
         send_door_status();
     }
 
 private:
+    void check_emg()
+    {
+        const bool active_now = digitalRead(EMG_PIN) == EMG_ACTIVE_LEVEL;
+
+        static bool last_emg_state = false;
+
+        emg_active = active_now;
+        lock1.set_emergency_override(active_now);
+        lock2.set_emergency_override(active_now);
+
+        if (active_now != last_emg_state)
+        {
+            last_emg_state = active_now;
+            write_data("#emg:" + String(active_now ? "1" : "0"));
+        }
+    }
+
     void check_buttons()
     {
-        if (!lock2.is_open && lock1.button_pressed)
+        if (lock1.button_pressed && !lock1.is_open && !lock2.is_open)
+        {
             lock1.trigger_open();
+            return;
+        }
 
-        if (!lock1.is_open && lock2.button_pressed)
+        if (lock2.button_pressed && !lock1.is_open && !lock2.is_open)
             lock2.trigger_open();
     }
 

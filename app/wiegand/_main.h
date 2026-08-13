@@ -1,10 +1,5 @@
 #include <Arduino.h>
-
-// === PINOS DE CADA LEITOR ===
-#define PIN_D0_1 8
-#define PIN_D1_1 19
-#define PIN_D0_2 20
-#define PIN_D1_2 3
+#include "../../pins.h"
 
 #define FRAME_TIMEOUT 100 // ms para considerar fim de frame
 class WIEGAND_READER
@@ -51,6 +46,14 @@ public:
         }
     }
 
+    bool is_reading() const
+    {
+        if (_bitCount == 0)
+            return false;
+
+        return (millis() - _lastMillis) <= FRAME_TIMEOUT;
+    }
+
 private:
     uint8_t _pinD0, _pinD1;
     const char *_name;
@@ -75,3 +78,8 @@ private:
 // === Instâncias para 2 leitores ===
 WIEGAND_READER wiegand1(PIN_D0_1, PIN_D1_1, "1");
 WIEGAND_READER wiegand2(PIN_D0_2, PIN_D1_2, "2");
+
+bool wiegand_is_reading()
+{
+    return wiegand1.is_reading() || wiegand2.is_reading();
+}

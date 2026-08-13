@@ -1,15 +1,7 @@
 #pragma once
 #include <AbleButtons.h>
-
-// ==== PIN DEFINITIONS ====
-#define PIN_SENSOR_1 18
-#define PIN_SENSOR_2 17
-
-#define BUTTON_PIN_1 16
-#define BUTTON_PIN_2 15
-
-#define PIN_LOCK_1 40
-#define PIN_LOCK_2 39
+#include "../../pins.h"
+#include "../../vars.h"
 
 // ==== CLASS DEFINITION ====
 class LOCK
@@ -24,7 +16,7 @@ public:
     {
     }
 
-    bool is_open = false;        // physical door open/closed state
+    bool is_open = true;         // startup: considera aberta ate o primeiro GND no sensor
     bool button_pressed = false; // button physical pressed state
 
     void setup()
@@ -35,10 +27,17 @@ public:
         pinMode(pin_sensor, INPUT_PULLUP);
         pinMode(pin_button, INPUT_PULLUP);
         pinMode(pin_lock, OUTPUT);
+        set_relay(false); // startup: rele desativado em LOW
     }
 
     void loop()
     {
+        if (emergency_override)
+        {
+            apply_emergency_override();
+            return;
+        }
+
         sensor.handle();
         button.handle();
 
@@ -47,9 +46,33 @@ public:
         update_outputs();
     }
 
-    void trigger_open()
+    bool trigger_open()
     {
-        _open_door = true;
+        if (emergency_override || is_open)
+            return false;
+
+        // Abertura e por comando: nao depende de sensor voltar para HIGH.
+        last_open_ms = millis();
+        is_open = true;
+        return true;
+    }
+
+    void set_emergency_override(bool active)
+    {
+        if (emergency_override == active)
+            return;
+
+        emergency_override = active;
+        // Ao entrar/sair de EMG, considera estado da porta como aberto/indefinido
+        // ate o sensor fechar em GND.
+        is_open = true;
+        last_open_ms = 0;
+
+        if (active)
+        {
+            // EMG ativo: trava logica normal e mantem rele desativado em LOW.
+            button_pressed = false;
+        }
     }
 
 private:
@@ -59,15 +82,31 @@ private:
     uint8_t pin_lock;
     uint8_t pin_button;
 
-    bool _open_door = false;
-    bool ensure_close = false;
-    unsigned long current_time = 0;
+    bool emergency_override = false;
+    unsigned long last_open_ms = 0;
+
+    void apply_emergency_override()
+    {
+        set_relay(false);
+    }
+
+    void set_relay(bool active)
+    {
+        digitalWrite(pin_lock, active ? LOCK_OUTPUT_ACTIVE_LEVEL : LOCK_OUTPUT_INACTIVE_LEVEL);
+    }
 
     void update_sensor()
     {
-        bool new_state = sensor.isPressed();
-        if (new_state != is_open)
-            is_open = new_state;
+        const bool sensor_closed = INVERT_SENSOR_LOGIC ? !sensor.isPressed() : sensor.isPressed();
+        if (!sensor_closed || !is_open)
+            return;
+
+        // Guarda curta evita fechar instantaneamente por leitura residual apos trigger.
+        const unsigned long close_guard_ms = 200;
+        if (millis() - last_open_ms < close_guard_ms)
+            return;
+
+        is_open = false;
     }
 
     void update_button()
@@ -79,25 +118,7 @@ private:
 
     void update_outputs()
     {
-        if (_open_door)
-        {
-            ensure_close = true;
-            if (current_time == 0)
-                current_time = millis();
-        }
-        else if (!is_open && ensure_close)
-        {
-            ensure_close = false;
-        }
-
-        digitalWrite(pin_lock, ensure_close ? HIGH : LOW);
-
-        const unsigned long pulse_time = 1000;
-        if (_open_door && millis() - current_time > pulse_time)
-        {
-            _open_door = false;
-            current_time = 0;
-        }
+        set_relay(!is_open);
     }
 };
 
@@ -112,10 +133,19 @@ bool lock_state()
     return lock1.is_open || lock2.is_open;
 }
 
-void open_door(int id)
+bool open_door(int id)
 {
-    if (id == 1 && !lock2.is_open)
-        lock1.trigger_open();
-    else if (id == 2 && !lock1.is_open)
-        lock2.trigger_open();
+    if (emg_active)
+        return false;
+
+    if (lock1.is_open || lock2.is_open)
+        return false;
+
+    if (id == 1)
+        return lock1.trigger_open();
+
+    if (id == 2)
+        return lock2.trigger_open();
+
+    return false;
 }
