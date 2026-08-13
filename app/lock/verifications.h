@@ -41,14 +41,26 @@ private:
 
     void check_buttons()
     {
-        if (lock1.button_pressed && !lock1.is_open && !lock2.is_open)
+        if (lock1.button_pressed)
         {
+            if (lock1.is_open || lock2.is_open)
+            {
+                command_error("BUTTON", "DOOR_IS_OPEN");
+                return;
+            }
             lock1.trigger_open();
             return;
         }
 
-        if (lock2.button_pressed && !lock1.is_open && !lock2.is_open)
+        if (lock2.button_pressed)
+        {
+            if (lock1.is_open || lock2.is_open)
+            {
+                command_error("BUTTON", "DOOR_IS_OPEN");
+                return;
+            }
             lock2.trigger_open();
+        }
     }
 
     void update_state()
