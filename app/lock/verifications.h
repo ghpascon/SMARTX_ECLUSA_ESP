@@ -41,11 +41,19 @@ private:
 
     void check_buttons()
     {
+        static bool last_any_open = false;
+        bool any_open = lock1.is_open || lock2.is_open;
+        if (!any_open)
+            last_any_open = false;
         if (lock1.button_pressed)
         {
-            if (lock1.is_open || lock2.is_open)
+            if (any_open)
             {
-                command_error("BUTTON", "DOOR_IS_OPEN");
+                if (last_any_open != any_open)
+                {
+                    command_error("BUTTON", "DOOR_IS_OPEN");
+                    last_any_open = any_open;
+                }
                 return;
             }
             lock1.trigger_open();
@@ -54,9 +62,13 @@ private:
 
         if (lock2.button_pressed)
         {
-            if (lock1.is_open || lock2.is_open)
+            if (any_open)
             {
-                command_error("BUTTON", "DOOR_IS_OPEN");
+                if (last_any_open != any_open)
+                {
+                    command_error("BUTTON", "DOOR_IS_OPEN");
+                    last_any_open = any_open;
+                }
                 return;
             }
             lock2.trigger_open();
