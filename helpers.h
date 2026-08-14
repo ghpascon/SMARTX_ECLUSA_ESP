@@ -14,7 +14,7 @@ String readLine(Stream &stream)
     return cmd;
 }
 
-void write_data(const String &data)
+void write_data(String data)
 {
     Serial.println(data);
     my_usb.println(data);

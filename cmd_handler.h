@@ -6,7 +6,7 @@
 #include "vars.h"
 
 bool open_door(int id);
-void write_data(const String &data);
+void write_data(String data);
 
 static const uint32_t COMMAND_ACTIVITY_RESET_MS = 60000;
 static const uint32_t COMMAND_ACTIVITY_TIMEOUT_MS = 5000;
@@ -102,7 +102,7 @@ inline bool process_command(const String &raw_command, const String &origin)
 
     if (cmd_lc == "#ping")
     {
-        write_data("#PONG:" + origin);
+        write_data("#pong");
         return true;
     }
 

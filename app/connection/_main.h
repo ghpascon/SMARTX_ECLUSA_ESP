@@ -2,6 +2,8 @@
 #include "server.h"
 #include "eth_callback.h"
 #include "telnet.h"
+#include "../../pins.h"
+#include "../../cmd_handler.h"
 
 class CONNECTION : private CONNECTION_SERVER, public TELNET
 {

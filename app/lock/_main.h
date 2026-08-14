@@ -1,6 +1,7 @@
 #pragma once
 #include <AbleButtons.h>
-
+#include "../../pins.h"
+#include "../../vars.h"
 // ==== CLASS DEFINITION ====
 class LOCK
 {
@@ -128,7 +129,7 @@ LOCK lock2(PIN_SENSOR_2, PIN_LOCK_2, BUTTON_PIN_2);
 
 bool lock_state()
 {
-    return lock1.is_open || lock2.is_open;
+    return lock1.is_open || lock2.is_open || emg_active;
 }
 
 bool open_door(int id)

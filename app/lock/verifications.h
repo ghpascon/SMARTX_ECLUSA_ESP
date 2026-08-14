@@ -1,3 +1,6 @@
+#include "../../pins.h"
+#include "../../vars.h"
+
 class LockVerifications
 {
 public:
@@ -9,10 +12,6 @@ public:
     void loop()
     {
         check_emg();
-
-        if (emg_active)
-            return;
-
         check_buttons();
         update_state();
         send_door_status();
