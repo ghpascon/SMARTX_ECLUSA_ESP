@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "../../pins.h"
 
 #define FRAME_TIMEOUT 100 // ms para considerar fim de frame
 class WIEGAND_READER

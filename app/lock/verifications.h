@@ -1,6 +1,3 @@
-#include "../../pins.h"
-#include "../../vars.h"
-
 class LockVerifications
 {
 public:
@@ -41,34 +38,33 @@ private:
 
     void check_buttons()
     {
-        static bool last_any_open = false;
-        bool any_open = lock1.is_open || lock2.is_open;
-        if (!any_open)
-            last_any_open = false;
-        if (lock1.button_pressed)
+        static bool last_lock1_pressed = false;
+        static bool last_lock2_pressed = false;
+
+        const bool lock1_just_pressed = lock1.button_pressed && !last_lock1_pressed;
+        const bool lock2_just_pressed = lock2.button_pressed && !last_lock2_pressed;
+
+        last_lock1_pressed = lock1.button_pressed;
+        last_lock2_pressed = lock2.button_pressed;
+
+        const bool any_open = lock1.is_open || lock2.is_open;
+
+        if (lock1_just_pressed)
         {
             if (any_open)
             {
-                if (last_any_open != any_open)
-                {
-                    command_error("BUTTON", "DOOR_IS_OPEN");
-                    last_any_open = any_open;
-                }
+                command_error("BUTTON", "DOOR_IS_OPEN");
                 return;
             }
             lock1.trigger_open();
             return;
         }
 
-        if (lock2.button_pressed)
+        if (lock2_just_pressed)
         {
             if (any_open)
             {
-                if (last_any_open != any_open)
-                {
-                    command_error("BUTTON", "DOOR_IS_OPEN");
-                    last_any_open = any_open;
-                }
+                command_error("BUTTON", "DOOR_IS_OPEN");
                 return;
             }
             lock2.trigger_open();

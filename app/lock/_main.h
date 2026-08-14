@@ -1,7 +1,5 @@
 #pragma once
 #include <AbleButtons.h>
-#include "../../pins.h"
-#include "../../vars.h"
 
 // ==== CLASS DEFINITION ====
 class LOCK

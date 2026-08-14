@@ -6,8 +6,9 @@
 #include "vars.h"
 
 bool open_door(int id);
-void write_data(String data);
+void write_data(const String &data);
 
+static const uint32_t COMMAND_ACTIVITY_RESET_MS = 60000;
 static const uint32_t COMMAND_ACTIVITY_TIMEOUT_MS = 5000;
 static const uint32_t COMMAND_STALE_INPUT_MS = 3000;
 static const size_t MAX_COMMAND_LENGTH = 256;
@@ -70,12 +71,17 @@ inline void update_command_connection_state()
         return;
     }
 
-    is_connected = (millis() - last_command_receive_ms) <= COMMAND_ACTIVITY_TIMEOUT_MS;
+    const unsigned long now = millis();
+    is_connected = (now - last_command_receive_ms) <= COMMAND_ACTIVITY_TIMEOUT_MS;
+    if (now - last_command_receive_ms >= COMMAND_ACTIVITY_RESET_MS)
+    {
+        ESP.restart();
+    }
 }
 
 inline void command_error(const String &origin, const String &reason)
 {
-    write_data("#ERROR:" +  reason);
+    write_data("#ERROR:" + reason);
 }
 
 inline bool process_command(const String &raw_command, const String &origin)
