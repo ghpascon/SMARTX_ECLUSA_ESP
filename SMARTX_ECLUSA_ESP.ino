@@ -64,8 +64,6 @@ void setup()
   // Forca estado inativo dos reles logo no boot para evitar acionamento na partida.
   pinMode(PIN_LOCK_1, OUTPUT);
   pinMode(PIN_LOCK_2, OUTPUT);
-  digitalWrite(PIN_LOCK_1, LOCK_OUTPUT_INACTIVE_LEVEL);
-  digitalWrite(PIN_LOCK_2, LOCK_OUTPUT_INACTIVE_LEVEL);
 
   Serial.begin(115200);
   USB.VID(0x0001);
