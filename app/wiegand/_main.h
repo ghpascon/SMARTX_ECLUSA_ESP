@@ -38,8 +38,10 @@ public:
             _bitBuffer[_bitCount] = '\0';
 
             // Envia a sequência bruta de bits
-            if (millis() - last_close > 5000)
+            unsigned long currentMillis = millis();
+            if (currentMillis - last_close > 5000 && currentMillis - last_send > 1000)
                 write_data(String("#wg:") + _name + ":" + String(_bitBuffer));
+            last_send = currentMillis;
 
             _bitCount = 0;
             memset(_bitBuffer, 0, sizeof(_bitBuffer));

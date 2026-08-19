@@ -54,7 +54,7 @@ private:
         {
             if (any_open)
             {
-                command_error("BUTTON", "DOOR_IS_OPEN");
+                command_error("BUTTON", "PORTA_ABERTA");
                 return;
             }
             lock1.trigger_open();
@@ -65,7 +65,7 @@ private:
         {
             if (any_open)
             {
-                command_error("BUTTON", "DOOR_IS_OPEN");
+                command_error("BUTTON", "PORTA_ABERTA");
                 return;
             }
             lock2.trigger_open();

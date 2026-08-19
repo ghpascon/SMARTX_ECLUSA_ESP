@@ -92,7 +92,7 @@ inline bool process_command(const String &raw_command, const String &origin)
 
     if (cmd.length() > MAX_COMMAND_LENGTH)
     {
-        command_error(origin, "CMD_TOO_LONG");
+        command_error(origin, "COMANDO_LONGO");
         return false;
     }
 
@@ -119,7 +119,7 @@ inline bool process_command(const String &raw_command, const String &origin)
     {
         if (emg_active)
         {
-            command_error(origin, "EMG_ACTIVE");
+            command_error(origin, "EMERGENCIA_ATIVA");
             return false;
         }
 
@@ -130,13 +130,13 @@ inline bool process_command(const String &raw_command, const String &origin)
         int door = 0;
         if (!parse_strict_int(door_text, 1, 2, door))
         {
-            command_error(origin, "INVALID_DOOR");
+            command_error(origin, "PORTA_INVALIDA");
             return false;
         }
 
         if (!open_door(door))
         {
-            command_error(origin, "DOOR_BUSY");
+            command_error(origin, "PORTA_OCUPADA");
             return false;
         }
 
@@ -153,7 +153,7 @@ inline bool process_command(const String &raw_command, const String &origin)
 
         if (payload.length() == 0)
         {
-            command_error(origin, "MISSING_CARD");
+            command_error(origin, "FALTA_CARTAO");
             return false;
         }
 
@@ -171,7 +171,7 @@ inline bool process_command(const String &raw_command, const String &origin)
 
             if (card_id.length() == 0)
             {
-                command_error(origin, "MISSING_CARD");
+                command_error(origin, "FALTA_CARTAO");
                 return false;
             }
         }
@@ -179,7 +179,7 @@ inline bool process_command(const String &raw_command, const String &origin)
         int door = 0;
         if (has_door && !parse_strict_int(door_text, 1, 2, door))
         {
-            command_error(origin, "INVALID_DOOR");
+            command_error(origin, "PORTA_INVALIDA");
             return false;
         }
 
@@ -190,7 +190,7 @@ inline bool process_command(const String &raw_command, const String &origin)
         {
             if (!open_door(door))
             {
-                command_error(origin, "DOOR_BUSY");
+                command_error(origin, "PORTA_OCUPADA");
                 return false;
             }
         }
@@ -211,7 +211,7 @@ inline bool process_command(const String &raw_command, const String &origin)
         int qty = 0;
         if (!parse_strict_int(qty_text, 0, 1000000, qty))
         {
-            command_error(origin, "INVALID_TAGS_QTY");
+            command_error(origin, "QUANTIDADE_INVALIDA");
             return false;
         }
 
@@ -220,7 +220,7 @@ inline bool process_command(const String &raw_command, const String &origin)
         return true;
     }
 
-    command_error(origin, "INVALID_CMD");
+    command_error(origin, "COMANDO_DESCONHECIDO");
     return false;
 }
 
