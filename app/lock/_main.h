@@ -101,7 +101,7 @@ private:
             return;
 
         // Guarda curta evita fechar instantaneamente por leitura residual apos trigger.
-        const unsigned long close_guard_ms = 2000;
+        const unsigned long close_guard_ms = 3000;
         if (millis() - last_open_ms < close_guard_ms)
             return;
 
