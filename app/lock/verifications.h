@@ -37,6 +37,8 @@ private:
 
     void check_buttons()
     {
+        if (millis() - last_close < 5000)
+            return;
         static bool last_lock1_pressed = false;
         static bool last_lock2_pressed = false;
 
