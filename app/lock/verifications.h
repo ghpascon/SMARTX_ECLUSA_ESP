@@ -15,6 +15,7 @@ public:
         check_buttons();
         update_state();
         send_door_status();
+        update_last_close();
     }
 
 private:
@@ -115,6 +116,17 @@ private:
             {
                 write_data("#close:2");
             }
+        }
+    }
+
+    void update_last_close()
+    {
+        static bool last_state = false;
+        bool current_state = lock_state();
+        if (current_state != last_state)
+        {
+            last_state = current_state;
+            last_close = millis();
         }
     }
 };
