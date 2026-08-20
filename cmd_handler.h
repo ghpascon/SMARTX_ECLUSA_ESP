@@ -216,7 +216,16 @@ inline bool process_command(const String &raw_command, const String &origin)
         }
 
         tags_qty = qty;
-        write_data("#TAGS_QTY:" + String(tags_qty));
+        return true;
+    }
+
+    if (cmd_lc.startsWith("#extra_msg:"))
+    {
+        int sep = cmd_lc.indexOf(':');
+        String msg_text = cmd.substring(sep + 1);
+        msg_text.trim();
+
+        extra_msg = msg_text;
         return true;
     }
 

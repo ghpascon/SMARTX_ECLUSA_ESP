@@ -67,6 +67,7 @@ private:
         else
             msg = "Portas Abertas";
         msg += "\nTags lidas: " + String(tags_qty);
+        msg += "\n" + extra_msg;
         app_string.write(msg);
     }
 
