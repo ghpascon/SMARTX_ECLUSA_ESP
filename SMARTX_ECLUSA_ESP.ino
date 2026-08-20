@@ -66,6 +66,7 @@ void setup()
   pinMode(PIN_LOCK_2, OUTPUT);
 
   Serial.begin(115200);
+  Serial2.begin(115200, SERIAL_8N1, DISPLAY_RX_PIN, DISPLAY_TX_PIN);
   USB.VID(0x0001);
   USB.PID(0x0003);
   USB.manufacturerName("Smartx");

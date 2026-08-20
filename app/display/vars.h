@@ -1,5 +1,5 @@
 #include <UnicViewAD.h>
-LCM Lcm(Serial);
+LCM Lcm(Serial2);
 
 LcmString app_string(1000, 100);
 LcmString identification_string(1500, 100);
