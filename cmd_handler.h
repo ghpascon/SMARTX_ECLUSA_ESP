@@ -224,12 +224,13 @@ inline bool process_command(const String &raw_command, const String &origin)
         int sep = cmd_lc.indexOf(':');
         String msg_text = cmd.substring(sep + 1);
         msg_text.trim();
+        msg_text.replace(", ", "\n");
 
         extra_msg = msg_text;
         return true;
     }
 
-    command_error(origin, "COMANDO_DESCONHECIDO");
+    command_error(origin, "COMANDO_DESCONHECIDO: " + cmd);
     return false;
 }
 
